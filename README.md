@@ -1,7 +1,7 @@
 # AgentFlow
 
 
-![AgentFlow Logo](./public/logo.png)
+![AgentFlow Logo](./myagentflow/public/logo.png)
 **The Next Generation Multi-Agent Task Automation System**
 
 *Divide. Delegate. Dominate.*
@@ -370,13 +370,13 @@ http://localhost:3000
 ## 📸 Demo
 
 ### Agent Dashboard
-![Agent Dashboard](./public/home.png)
+![Agent Dashboard](./myagentflow/public/home.png)
 
 ### Agents Team
-![Agent Dashboard](./public/team.png)
+![Agent Dashboard](./myagentflow/public/team.png)
 
 ### Why AgentFlow ?
-*![Agent Dashboard](./public/benefits.png)
+*![Agent Dashboard](./myagentflow/public/benefits.png)
 
 > 📹 **[Watch Full Demo Video](#)** | 🌐 **[Try Live Demo](#)**
 
