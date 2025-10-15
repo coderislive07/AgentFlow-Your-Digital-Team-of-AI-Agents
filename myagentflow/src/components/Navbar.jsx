@@ -4,15 +4,12 @@ import logo from '../../public/logo.png'
 import Image from "next/image"
 
 const links = [
-  { label: "Dashboard", href: "/dashboard" },
+  { label: "OpsRoom", href: "/opsRoom" },
   { label: "Agents", href: "/agents" },
   { label: "Tasks", href: "/tasks" },
   { label: "Orchestrator", href: "/orchestrator" },
   { label: "Memory", href: "/memory" },
   { label: "Analytics", href: "/analytics" },
-  { label: "Playground", href: "/playground" },
-  { label: "Settings", href: "/settings" },
-  { label: "Logout", href: "/logout" },
 ]
 
 export default function Navbar() {
