@@ -10,6 +10,7 @@ import Reporter from '../../../public/Workers/Reporter.png'
 import { Plus, MessageCircle, Sparkles } from "lucide-react"
 import logo from '../../../public/logo.png'
 import {useRouter} from 'next/navigation'
+import Chatbot from '@/components/Chatbot'
 
 const agents = [
   { id: 1, name: "Planzilla", role: "Planner", image: Planner, color: "from-orange-500 to-red-500" },
@@ -144,54 +145,14 @@ export default function OpsRoom() {
 
           {/* Chat and Kanban Split */}
           <div className="flex-1 overflow-hidden flex ">
-            {/* Chat Messages */}
-           {/* Left Panel */}
-<div className="w-1/3 border-r border-blue-500/20 bg-white/5 backdrop-blur-xl flex flex-col">
-  {/* Search Box (fixed at top) */}
-
-
-  {/* Chat Messages (scrollable) */}
-  <div className="flex-1 overflow-y-auto p-6 space-y-6">
-    {mockMessages.map((msg) => {
-      const agent = agents.find((a) => a.name === msg.agent)
-      return (
-        <div key={msg.id} className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-blue-400 flex-shrink-0">
-              <Image
-                src={agent?.image || "/placeholder.svg"}
-                alt={msg.agent}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex gap-x-2">
-              <p className="text-sm font-semibold text-white">{msg.agent}</p>
-              <p className="text-xs text-blue-300 mt-1">| {msg.role}</p>
-            </div>
-            {msg.status && (
-              <span className="text-xs text-green-400 font-medium bg-green-500/20 px-2 py-1 rounded">
-                {msg.status}
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-blue-200 leading-relaxed ml-13">{msg.message}</p>
-          <p className="text-xs text-blue-400 ml-13">{msg.timestamp}</p>
-        </div>
-      )
-    })}
-  </div>
-    <div className="p-4">
-    <input
-      type="text"
-      placeholder="Ask a follow-up..."
-      className="w-full px-4 py-2 rounded-xl bg-white/20 backdrop-blur-md text-white placeholder-white-300 border border-blue-400/30 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-    />
-  </div>
+            {/* Left Panel - Chatbot */}
+<div className="w-1/4 border-r border-blue-500/20 bg-white/5 backdrop-blur-xl flex flex-col p-4">
+  <Chatbot />
 </div>
 
             
-            {/* outer  */}
-            <div className="flex-1   overflow-hidden flex flex-col">
+            {/* Main Content Panel - Tasks */}
+            <div className="flex-1 overflow-hidden flex flex-col">
                 {/* top bar with agents */}
                  <div className="border-b b border-blue-500/20 bg-white/5 backdrop-blur-xl px-8 py-4 ">
             <div className="flex items-center gap-4">
