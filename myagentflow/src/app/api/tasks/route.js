@@ -1,204 +1,118 @@
-// Tasks API - Get, Create, Update, Delete tasks
-// This is a mock implementation. Replace with database calls as needed.
-
-const mockTasks = [
-  {
-    id: 1,
-    title: "Create a Product Requirement Document (PRD) for a basic RGB color picker",
-    description: "Outline features, UI, and UX including hex color code display",
-    status: "completed",
-    priority: "high",
-    assignedTo: "CodeWizard",
-    dueDate: "2024-01-15",
-    progress: 100,
-    createdAt: "2024-01-10",
-  },
-  {
-    id: 2,
-    title: "Design the software architecture for the RGB color picker",
-    description: "Focus on GUI interactions and RGB slider integration",
-    status: "in-progress",
-    priority: "high",
-    assignedTo: "DataBard",
-    dueDate: "2024-01-20",
-    progress: 65,
-    createdAt: "2024-01-11",
-  },
-  {
-    id: 3,
-    title: "Implement the design of the RGB color picker",
-    description: "Build GUI, sliders, and hex color display using HTML, CSS, JavaScript",
-    status: "in-progress",
-    priority: "high",
-    assignedTo: "CodeWizard",
-    dueDate: "2024-01-25",
-    progress: 45,
-    createdAt: "2024-01-12",
-  },
-  {
-    id: 4,
-    title: "Break down the architecture into manageable tasks",
-    description: "Identify task dependencies and prepare detailed task list",
-    status: "todo",
-    priority: "medium",
-    assignedTo: "Planzilla",
-    dueDate: "2024-01-18",
-    progress: 0,
-    createdAt: "2024-01-13",
-  },
-  {
-    id: 5,
-    title: "Test RGB color picker functionality",
-    description: "Verify slider accuracy and color conversion",
-    status: "todo",
-    priority: "medium",
-    assignedTo: "BugBuster",
-    dueDate: "2024-01-28",
-    progress: 0,
-    createdAt: "2024-01-14",
-  },
-]
+import { getTasks, addTask, updateTask, getTaskById } from '@/lib/storage';
 
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get("id")
-    const status = searchParams.get("status")
-    const agent = searchParams.get("agent")
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    const assignedTo = searchParams.get('assignedTo');
+    const id = searchParams.get('id');
 
-    let results = [...mockTasks]
+    let tasks = getTasks();
 
+    // Get single task by ID
     if (id) {
-      results = results.filter((t) => t.id === parseInt(id))
+      const task = getTaskById(parseInt(id));
+      if (!task) {
+        return Response.json(
+          { error: 'Task not found' },
+          { status: 404 }
+        );
+      }
+      return Response.json({ success: true, task });
     }
+
+    // Filter by status
     if (status) {
-      results = results.filter((t) => t.status === status)
+      tasks = tasks.filter((t) => t.status === status);
     }
-    if (agent) {
-      results = results.filter((t) => t.assignedTo === agent)
+
+    // Filter by assignedTo
+    if (assignedTo) {
+      tasks = tasks.filter((t) => t.assignedTo === assignedTo);
     }
+
+    // Sort by creation time (newest first)
+    tasks = tasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     return Response.json({
-      tasks: results,
-      total: results.length,
-    })
+      success: true,
+      tasks: tasks,
+      total: tasks.length,
+    });
   } catch (error) {
-    console.error("API error:", error)
+    console.error('Get tasks error:', error);
     return Response.json(
-      { error: "Failed to fetch tasks" },
+      { success: false, error: error.message },
       { status: 500 }
-    )
+    );
   }
 }
 
 export async function POST(request) {
   try {
-    const body = await request.json()
-    const { title, description, priority, assignedTo, dueDate } = body
+    const body = await request.json();
+    const { title, description, priority, assignedTo, status } = body;
 
-    if (!title || !priority || !assignedTo || !dueDate) {
+    if (!title) {
       return Response.json(
-        { error: "Title, priority, assignedTo, and dueDate are required" },
+        { success: false, error: 'Title is required' },
         { status: 400 }
-      )
+      );
     }
 
-    const newTask = {
-      id: mockTasks.length + 1,
+    const newTask = addTask({
       title,
-      description: description || "",
-      status: "todo",
-      priority,
-      assignedTo,
-      dueDate,
+      description: description || '',
+      status: status || 'todo',
+      priority: priority || 'medium',
+      assignedTo: assignedTo || 'Unassigned',
       progress: 0,
-      createdAt: new Date().toISOString().split("T")[0],
-    }
+    });
 
-    mockTasks.push(newTask)
-
-    return Response.json(
-      {
-        message: "Task created successfully",
-        task: newTask,
-      },
-      { status: 201 }
-    )
+    return Response.json({
+      success: true,
+      task: newTask,
+      message: 'Task created successfully',
+    });
   } catch (error) {
-    console.error("API error:", error)
+    console.error('Create task error:', error);
     return Response.json(
-      { error: "Failed to create task" },
+      { success: false, error: error.message },
       { status: 500 }
-    )
+    );
   }
 }
 
 export async function PUT(request) {
   try {
-    const body = await request.json()
-    const { id, ...updates } = body
+    const body = await request.json();
+    const { id, ...updates } = body;
 
     if (!id) {
       return Response.json(
-        { error: "Task ID is required" },
+        { success: false, error: 'Task ID is required' },
         { status: 400 }
-      )
+      );
     }
 
-    const taskIndex = mockTasks.findIndex((t) => t.id === id)
-    if (taskIndex === -1) {
+    const updatedTask = updateTask(id, updates);
+    if (!updatedTask) {
       return Response.json(
-        { error: "Task not found" },
+        { success: false, error: 'Task not found' },
         { status: 404 }
-      )
+      );
     }
-
-    mockTasks[taskIndex] = { ...mockTasks[taskIndex], ...updates }
 
     return Response.json({
-      message: "Task updated successfully",
-      task: mockTasks[taskIndex],
-    })
+      success: true,
+      task: updatedTask,
+      message: 'Task updated successfully',
+    });
   } catch (error) {
-    console.error("API error:", error)
+    console.error('Update task error:', error);
     return Response.json(
-      { error: "Failed to update task" },
+      { success: false, error: error.message },
       { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get("id")
-
-    if (!id) {
-      return Response.json(
-        { error: "Task ID is required" },
-        { status: 400 }
-      )
-    }
-
-    const taskIndex = mockTasks.findIndex((t) => t.id === parseInt(id))
-    if (taskIndex === -1) {
-      return Response.json(
-        { error: "Task not found" },
-        { status: 404 }
-      )
-    }
-
-    const deletedTask = mockTasks.splice(taskIndex, 1)
-
-    return Response.json({
-      message: "Task deleted successfully",
-      task: deletedTask[0],
-    })
-  } catch (error) {
-    console.error("API error:", error)
-    return Response.json(
-      { error: "Failed to delete task" },
-      { status: 500 }
-    )
+    );
   }
 }

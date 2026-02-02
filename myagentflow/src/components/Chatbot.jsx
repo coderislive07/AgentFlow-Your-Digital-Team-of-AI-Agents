@@ -1,19 +1,20 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Send, Loader } from "lucide-react"
+import { Send, Loader, Sparkles, CheckCircle } from "lucide-react"
 
 export default function Chatbot() {
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: "bot",
-      content: "Hello! I'm the AgentFlow assistant. How can I help you manage your AI agents today?",
+      content: "Hello! I'm the AgentFlow assistant. How can I help you manage your AI agents today? Try asking me to build something!",
       timestamp: new Date(),
     },
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const [orchestrationActive, setOrchestrationActive] = useState(false)
   const messagesEndRef = useRef(null)
 
   const scrollToBottom = () => {
@@ -68,6 +69,19 @@ export default function Chatbot() {
           timestamp: new Date(),
         }
         setMessages((prev) => [...prev, botMessage])
+
+        // Show orchestration status if triggered
+        if (data.triggeredOrchestration && data.orchestration?.success) {
+          setOrchestrationActive(true)
+          const orchestrationMsg = {
+            id: messages.length + 3,
+            type: "system",
+            content: `Created ${data.orchestration.tasks?.length || 0} tasks assigned to ${data.orchestration.agents?.length || 0} agents`,
+            timestamp: new Date(),
+            orchestration: data.orchestration,
+          }
+          setMessages((prev) => [...prev, orchestrationMsg])
+        }
       } else {
         const errorMessage = {
           id: messages.length + 2,
@@ -106,22 +120,32 @@ export default function Chatbot() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-xs px-4 py-2 rounded-lg ${
-                msg.type === "user"
-                  ? "bg-blue-500/60 text-white rounded-br-none"
-                  : "bg-white/10 text-blue-100 rounded-bl-none"
-              }`}
-            >
-              <p className="text-sm">{msg.content}</p>
-              <p className={`text-xs mt-1 ${msg.type === "user" ? "text-blue-100" : "text-blue-300"}`}>
-                {formatTime(msg.timestamp)}
-              </p>
-            </div>
+          <div key={msg.id}>
+            {msg.type === "system" ? (
+              <div className="flex justify-center py-2">
+                <div className="flex items-center gap-2 bg-gradient-to-r from-green-500/30 to-emerald-500/30 px-4 py-2 rounded-lg border border-green-500/50">
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <p className="text-sm text-green-200">{msg.content}</p>
+                </div>
+              </div>
+            ) : (
+              <div
+                className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-xs px-4 py-2 rounded-lg ${
+                    msg.type === "user"
+                      ? "bg-blue-500/60 text-white rounded-br-none"
+                      : "bg-white/10 text-blue-100 rounded-bl-none"
+                  }`}
+                >
+                  <p className="text-sm">{msg.content}</p>
+                  <p className={`text-xs mt-1 ${msg.type === "user" ? "text-blue-100" : "text-blue-300"}`}>
+                    {formatTime(msg.timestamp)}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         ))}
 

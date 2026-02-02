@@ -1,72 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
-import { Filter, Plus, Search, CheckCircle, Clock, AlertCircle, Zap } from "lucide-react"
-
-const mockTasks = [
-  {
-    id: 1,
-    title: "Create a Product Requirement Document (PRD) for a basic RGB color picker",
-    description: "Outline features, UI, and UX including hex color code display",
-    status: "completed",
-    priority: "high",
-    assignedTo: "CodeWizard",
-    dueDate: "2024-01-15",
-    progress: 100,
-  },
-  {
-    id: 2,
-    title: "Design the software architecture for the RGB color picker",
-    description: "Focus on GUI interactions and RGB slider integration",
-    status: "in-progress",
-    priority: "high",
-    assignedTo: "DataBard",
-    dueDate: "2024-01-20",
-    progress: 65,
-  },
-  {
-    id: 3,
-    title: "Implement the design of the RGB color picker",
-    description: "Build GUI, sliders, and hex color display using HTML, CSS, JavaScript",
-    status: "in-progress",
-    priority: "high",
-    assignedTo: "CodeWizard",
-    dueDate: "2024-01-25",
-    progress: 45,
-  },
-  {
-    id: 4,
-    title: "Break down the architecture into manageable tasks",
-    description: "Identify task dependencies and prepare detailed task list",
-    status: "todo",
-    priority: "medium",
-    assignedTo: "Planzilla",
-    dueDate: "2024-01-18",
-    progress: 0,
-  },
-  {
-    id: 5,
-    title: "Test RGB color picker functionality",
-    description: "Verify slider accuracy and color conversion",
-    status: "todo",
-    priority: "medium",
-    assignedTo: "BugBuster",
-    dueDate: "2024-01-28",
-    progress: 0,
-  },
-  {
-    id: 6,
-    title: "Research color picker best practices",
-    description: "Review industry standards and user preferences",
-    status: "completed",
-    priority: "low",
-    assignedTo: "QueryLyn",
-    dueDate: "2024-01-10",
-    progress: 100,
-  },
-]
+import { Filter, Plus, Search, CheckCircle, Clock, AlertCircle, Zap, RefreshCw } from "lucide-react"
 
 const statusIcons = {
   completed: <CheckCircle className="w-5 h-5 text-green-400" />,
@@ -87,10 +24,33 @@ const priorityColors = {
 }
 
 export default function TasksPage() {
+  const [tasks, setTasks] = useState([])
   const [filter, setFilter] = useState("all")
   const [searchTerm, setSearchTerm] = useState("")
+  const [loading, setLoading] = useState(true)
 
-  const filteredTasks = mockTasks.filter((task) => {
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/tasks')
+        const data = await response.json()
+        if (data.success) {
+          setTasks(data.tasks)
+        }
+      } catch (error) {
+        console.error('Error fetching tasks:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTasks()
+    const interval = setInterval(fetchTasks, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const filteredTasks = tasks.filter((task) => {
     const matchesFilter = filter === "all" || task.status === filter
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           task.assignedTo.toLowerCase().includes(searchTerm.toLowerCase())
