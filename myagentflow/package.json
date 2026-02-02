@@ -13,7 +13,7 @@
     "cohere-ai": "^7.6.0",
     "dotenv": "^16.3.1",
     "express-validator": "^7.0.0",
-    "jsonwebtoken": "^9.1.2",
+    "jsonwebtoken": "^9.1.1",
     "lucide-react": "^0.545.0",
     "mongoose": "^8.0.3",
     "next": "15.5.9",
