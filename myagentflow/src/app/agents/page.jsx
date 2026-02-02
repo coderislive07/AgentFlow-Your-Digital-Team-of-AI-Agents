@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
@@ -9,19 +9,42 @@ import Developer from '../../../public/Workers/Developer.png'
 import Researcher from '../../../public/Workers/Researcher.png'
 import Tester from '../../../public/Workers/Tester.png'
 import Reporter from '../../../public/Workers/Reporter.png'
-import { Plus, Edit, Trash2, Settings, Zap } from "lucide-react"
+import { Plus, Edit, Trash2, Settings, Zap, RefreshCw } from "lucide-react"
 
-const agents = [
-  { id: 1, name: "Planzilla", role: "Planner", image: Planner, color: "from-orange-500 to-red-500", status: "active", tasks: 12 },
-  { id: 2, name: "QueryLyn", role: "Researcher", image: Researcher, color: "from-purple-500 to-pink-500", status: "active", tasks: 8 },
-  { id: 3, name: "CodeWizard", role: "Developer", image: Developer, color: "from-blue-500 to-cyan-500", status: "active", tasks: 15 },
-  { id: 4, name: "BugBuster", role: "Tester", image: Tester, color: "from-green-500 to-emerald-500", status: "idle", tasks: 5 },
-  { id: 5, name: "DataBard", role: "Reporter", image: Reporter, color: "from-yellow-500 to-orange-500", status: "active", tasks: 10 },
-]
+const agentImages = {
+  "Planzilla": Planner,
+  "QueryLyn": Researcher,
+  "CodeWizard": Developer,
+  "BugBuster": Tester,
+  "DataBard": Reporter,
+}
 
 export default function AgentsPage() {
+  const [agents, setAgents] = useState([])
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showNew, setShowNew] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/agents')
+        const data = await response.json()
+        if (data.success) {
+          setAgents(data.agents)
+        }
+      } catch (error) {
+        console.error('Error fetching agents:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAgents()
+    const interval = setInterval(fetchAgents, 3000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950">
@@ -65,19 +88,24 @@ export default function AgentsPage() {
             </div>
 
             {/* Agent Cards */}
-            {agents.map((agent) => (
-              <div
-                key={agent.id}
-                onClick={() => setSelectedAgent(agent)}
-                className="p-6 rounded-2xl bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border border-blue-500/30 hover:border-blue-500/60 transition-all cursor-pointer hover:scale-105 group"
-              >
-                <div className="relative mb-4">
-                  <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-2 border-blue-400">
-                    <Image
-                      src={agent.image}
-                      alt={agent.name}
-                      className="w-full h-full object-cover"
-                    />
+            {loading ? (
+              <div className="col-span-full text-center py-12">
+                <p className="text-gray-400">Loading agents...</p>
+              </div>
+            ) : agents.length > 0 ? (
+              agents.map((agent) => (
+                <div
+                  key={agent.id}
+                  onClick={() => setSelectedAgent(agent)}
+                  className="p-6 rounded-2xl bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border border-blue-500/30 hover:border-blue-500/60 transition-all cursor-pointer hover:scale-105 group"
+                >
+                  <div className="relative mb-4">
+                    <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-2 border-blue-400">
+                      <Image
+                        src={agentImages[agent.name] || "/placeholder.svg"}
+                        alt={agent.name}
+                        className="w-full h-full object-cover"
+                      />
                   </div>
                   <div className={`absolute top-0 right-0 px-3 py-1 rounded-full text-xs font-medium ${
                     agent.status === "active" 
@@ -93,13 +121,21 @@ export default function AgentsPage() {
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-blue-300">Tasks Assigned</span>
-                    <span className="text-white font-semibold">{agent.tasks}</span>
+                    <span className="text-blue-300">Total Tasks</span>
+                    <span className="text-white font-semibold">{agent.totalTasks || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-300">Completed</span>
+                    <span className="text-white font-semibold">{agent.completedTasks || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-cyan-300">Efficiency</span>
+                    <span className="text-white font-semibold">{agent.efficiency}</span>
                   </div>
                   <div className="w-full bg-blue-900/30 rounded-full h-2">
                     <div 
-                      className={`bg-gradient-to-r ${agent.color} h-2 rounded-full`}
-                      style={{ width: `${(agent.tasks / 20) * 100}%` }}
+                      className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full"
+                      style={{ width: `${agent.efficiency}` }}
                     />
                   </div>
                 </div>
@@ -113,7 +149,12 @@ export default function AgentsPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <p className="text-gray-400">No agents available</p>
+              </div>
+            )}
           </div>
 
           {/* Agent Details Panel */}

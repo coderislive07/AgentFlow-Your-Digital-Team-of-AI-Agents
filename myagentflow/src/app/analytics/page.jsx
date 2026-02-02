@@ -1,30 +1,35 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
-import { TrendingUp, Users, Zap, BarChart3, Calendar, Download } from "lucide-react"
-
-const chartData = [
-  { name: "Mon", tasks: 40, completed: 32, inProgress: 8 },
-  { name: "Tue", tasks: 55, completed: 45, inProgress: 10 },
-  { name: "Wed", tasks: 48, completed: 38, inProgress: 10 },
-  { name: "Thu", tasks: 65, completed: 52, inProgress: 13 },
-  { name: "Fri", tasks: 72, completed: 58, inProgress: 14 },
-  { name: "Sat", tasks: 38, completed: 30, inProgress: 8 },
-  { name: "Sun", tasks: 32, completed: 25, inProgress: 7 },
-]
-
-const agentStats = [
-  { name: "CodeWizard", tasks: 42, completed: 38, efficiency: "90%", activeTime: "6.5h" },
-  { name: "Planzilla", tasks: 35, completed: 32, efficiency: "91%", activeTime: "5.8h" },
-  { name: "DataBard", tasks: 28, completed: 25, efficiency: "89%", activeTime: "4.2h" },
-  { name: "QueryLyn", tasks: 32, completed: 29, efficiency: "91%", activeTime: "5.1h" },
-  { name: "BugBuster", tasks: 25, completed: 23, efficiency: "92%", activeTime: "3.9h" },
-]
+import { TrendingUp, Users, Zap, BarChart3, Calendar, Download, RefreshCw } from "lucide-react"
 
 export default function AnalyticsPage() {
+  const [analytics, setAnalytics] = useState(null)
   const [timeRange, setTimeRange] = useState("week")
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/analytics')
+        const data = await response.json()
+        if (data.success) {
+          setAnalytics(data.analytics)
+        }
+      } catch (error) {
+        console.error('Error fetching analytics:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAnalytics()
+    const interval = setInterval(fetchAnalytics, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950">
@@ -64,20 +69,25 @@ export default function AnalyticsPage() {
           </div>
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-            <div className="p-6 rounded-xl bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border border-blue-500/30">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-blue-300 font-semibold">Total Tasks</h3>
-                <Zap className="w-5 h-5 text-blue-400" />
-              </div>
-              <p className="text-4xl font-bold text-white mb-2">312</p>
-              <p className="text-sm text-green-400">↑ 12% from last week</p>
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-gray-400">Loading analytics...</p>
             </div>
+          ) : analytics ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+              <div className="p-6 rounded-xl bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border border-blue-500/30">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-blue-300 font-semibold">Total Tasks</h3>
+                  <Zap className="w-5 h-5 text-blue-400" />
+                </div>
+                <p className="text-4xl font-bold text-white mb-2">{analytics.summary.totalTasks}</p>
+                <p className="text-sm text-green-400">Across all agents</p>
+              </div>
 
-            <div className="p-6 rounded-xl bg-gradient-to-br from-cyan-900/40 to-blue-900/40 border border-cyan-500/30">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-cyan-300 font-semibold">Completion Rate</h3>
-                <TrendingUp className="w-5 h-5 text-cyan-400" />
+              <div className="p-6 rounded-xl bg-gradient-to-br from-cyan-900/40 to-blue-900/40 border border-cyan-500/30">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-cyan-300 font-semibold">Completion Rate</h3>
+                  <TrendingUp className="w-5 h-5 text-cyan-400" />
               </div>
               <p className="text-4xl font-bold text-white mb-2">89.7%</p>
               <p className="text-sm text-green-400">↑ 2.3% from last week</p>

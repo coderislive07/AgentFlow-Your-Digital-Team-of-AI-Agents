@@ -1,53 +1,44 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
-import { Search, Plus, Trash2, Edit, Brain, Database, Lock } from "lucide-react"
+import { Search, Plus, Trash2, Edit, Brain, Database, Lock, RefreshCw } from "lucide-react"
 
-const memoryItems = [
-  {
-    id: 1,
-    type: "knowledge",
-    title: "RGB Color Picker Algorithm",
-    description: "Advanced algorithm for color conversion between RGB and HEX formats",
-    category: "Technical",
-    lastModified: "2024-01-15",
-    size: "2.3 MB",
-    access: "shared",
-  },
-  {
-    id: 2,
-    type: "context",
-    title: "Project Requirements & Specifications",
-    description: "Complete project scope, requirements, and technical specifications",
-    category: "Documentation",
-    lastModified: "2024-01-14",
-    size: "1.8 MB",
-    access: "private",
-  },
-  {
-    id: 3,
-    type: "knowledge",
-    title: "Best Practices for Web Development",
-    description: "Industry standards and best practices for modern web development",
-    category: "Learning",
-    lastModified: "2024-01-13",
-    size: "3.5 MB",
-    access: "shared",
-  },
-  {
-    id: 4,
-    type: "context",
-    title: "Team Communication Logs",
-    description: "Archive of team discussions and decision logs",
-    category: "Communication",
-    lastModified: "2024-01-12",
-    size: "0.9 MB",
-    access: "private",
-  },
-  {
-    id: 5,
+export default function MemoryPage() {
+  const [memoryItems, setMemoryItems] = useState([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedTag, setSelectedTag] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [allTags, setAllTags] = useState([])
+
+  useEffect(() => {
+    const fetchMemory = async () => {
+      try {
+        setLoading(true)
+        let url = '/api/memory'
+        if (searchTerm) {
+          url += `?query=${encodeURIComponent(searchTerm)}`
+        }
+        const response = await fetch(url)
+        const data = await response.json()
+        if (data.success) {
+          setMemoryItems(data.memory)
+          setAllTags(data.tags || [])
+        }
+      } catch (error) {
+        console.error('Error fetching memory:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchMemory()
+  }, [searchTerm])
+
+  const filteredItems = selectedTag
+    ? memoryItems.filter(item => item.tags?.includes(selectedTag))
+    : memoryItems
     type: "knowledge",
     title: "Database Schema Patterns",
     description: "Common database design patterns and optimization techniques",
