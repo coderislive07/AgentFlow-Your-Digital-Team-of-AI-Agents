@@ -1,118 +1,121 @@
-import { getTasks, addTask, updateTask, getTaskById } from '@/lib/storage';
+import taskService from '@/services/taskService';
+import logger from '@/lib/logger';
+import { handleError, asyncHandler } from '@/lib/errors';
+import { validateRequest, createTaskSchema, updateTaskSchema } from '@/lib/validators';
 
-export async function GET(request) {
+export const GET = asyncHandler(async (request, response) => {
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const assignedTo = searchParams.get('assignedTo');
     const id = searchParams.get('id');
+    const status = searchParams.get('status');
+    const priority = searchParams.get('priority');
+    const assignedAgent = searchParams.get('assignedAgent');
 
-    let tasks = getTasks();
-
-    // Get single task by ID
+    // Get single task
     if (id) {
-      const task = getTaskById(parseInt(id));
-      if (!task) {
-        return Response.json(
-          { error: 'Task not found' },
-          { status: 404 }
-        );
-      }
-      return Response.json({ success: true, task });
+      const task = await taskService.getTaskById(id);
+      return Response.json({
+        success: true,
+        task,
+      });
     }
 
-    // Filter by status
-    if (status) {
-      tasks = tasks.filter((t) => t.status === status);
-    }
+    // Get filtered tasks
+    const filters = {};
+    if (status) filters.status = status;
+    if (priority) filters.priority = priority;
+    if (assignedAgent) filters.assignedAgent = assignedAgent;
 
-    // Filter by assignedTo
-    if (assignedTo) {
-      tasks = tasks.filter((t) => t.assignedTo === assignedTo);
-    }
+    const tasks = await taskService.getTasks(filters);
 
-    // Sort by creation time (newest first)
-    tasks = tasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
+    logger.info('Tasks retrieved', { count: tasks.length, filters });
     return Response.json({
       success: true,
-      tasks: tasks,
+      tasks,
       total: tasks.length,
     });
   } catch (error) {
-    console.error('Get tasks error:', error);
-    return Response.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return handleError(error, Response);
   }
-}
+});
 
-export async function POST(request) {
+export const POST = asyncHandler(async (request) => {
   try {
     const body = await request.json();
-    const { title, description, priority, assignedTo, status } = body;
 
-    if (!title) {
-      return Response.json(
-        { success: false, error: 'Title is required' },
-        { status: 400 }
-      );
-    }
+    // Validate input
+    const validated = createTaskSchema.parse(body);
 
-    const newTask = addTask({
-      title,
-      description: description || '',
-      status: status || 'todo',
-      priority: priority || 'medium',
-      assignedTo: assignedTo || 'Unassigned',
-      progress: 0,
-    });
+    const task = await taskService.createTask(validated);
 
-    return Response.json({
-      success: true,
-      task: newTask,
-      message: 'Task created successfully',
-    });
+    logger.info('Task created successfully', { taskId: task._id });
+    return Response.json(
+      {
+        success: true,
+        task,
+        message: 'Task created successfully',
+      },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error('Create task error:', error);
-    return Response.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return handleError(error, Response);
   }
-}
+});
 
-export async function PUT(request) {
+export const PUT = asyncHandler(async (request) => {
   try {
     const body = await request.json();
-    const { id, ...updates } = body;
+    const { id, ...updateData } = body;
 
     if (!id) {
       return Response.json(
-        { success: false, error: 'Task ID is required' },
+        {
+          success: false,
+          error: { message: 'Task ID is required', statusCode: 400 },
+        },
         { status: 400 }
       );
     }
 
-    const updatedTask = updateTask(id, updates);
-    if (!updatedTask) {
-      return Response.json(
-        { success: false, error: 'Task not found' },
-        { status: 404 }
-      );
-    }
+    // Validate update data
+    const validated = updateTaskSchema.parse(updateData);
 
+    const task = await taskService.updateTask(id, validated);
+
+    logger.info('Task updated successfully', { taskId: id });
     return Response.json({
       success: true,
-      task: updatedTask,
+      task,
       message: 'Task updated successfully',
     });
   } catch (error) {
-    console.error('Update task error:', error);
-    return Response.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return handleError(error, Response);
   }
-}
+});
+
+export const DELETE = asyncHandler(async (request) => {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return Response.json(
+        {
+          success: false,
+          error: { message: 'Task ID is required', statusCode: 400 },
+        },
+        { status: 400 }
+      );
+    }
+
+    await taskService.deleteTask(id);
+
+    logger.info('Task deleted successfully', { taskId: id });
+    return Response.json({
+      success: true,
+      message: 'Task deleted successfully',
+    });
+  } catch (error) {
+    return handleError(error, Response);
+  }
+});

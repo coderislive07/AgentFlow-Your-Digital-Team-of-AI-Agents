@@ -1,50 +1,116 @@
-import { getAgents, getTasks } from '@/lib/storage';
+import agentService from '@/services/agentService';
+import logger from '@/lib/logger';
+import { handleError, asyncHandler } from '@/lib/errors';
+import { validateRequest, createAgentSchema } from '@/lib/validators';
 
-export async function GET(request) {
+export const GET = asyncHandler(async (request) => {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const status = searchParams.get('status');
+    const role = searchParams.get('role');
+
+    // Get single agent
+    if (id) {
+      const agent = await agentService.getAgentById(id);
+      return Response.json({
+        success: true,
+        agent,
+      });
+    }
+
+    // Get all agents with filters
+    const filters = {};
+    if (status) filters.status = status;
+    if (role) filters.role = role;
+
+    const agents = await agentService.getAgents(filters);
+
+    logger.info('Agents retrieved', { count: agents.length });
+    return Response.json({
+      success: true,
+      agents,
+      total: agents.length,
+    });
+  } catch (error) {
+    return handleError(error, Response);
+  }
+});
+
+export const POST = asyncHandler(async (request) => {
+  try {
+    const body = await request.json();
+
+    // Validate input
+    const validated = createAgentSchema.parse(body);
+
+    const agent = await agentService.createAgent(validated);
+
+    logger.info('Agent created successfully', { agentId: agent._id });
+    return Response.json(
+      {
+        success: true,
+        agent,
+        message: 'Agent created successfully',
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    return handleError(error, Response);
+  }
+});
+
+export const PUT = asyncHandler(async (request) => {
+  try {
+    const body = await request.json();
+    const { id, ...updateData } = body;
+
+    if (!id) {
+      return Response.json(
+        {
+          success: false,
+          error: { message: 'Agent ID is required', statusCode: 400 },
+        },
+        { status: 400 }
+      );
+    }
+
+    const agent = await agentService.updateAgent(id, updateData);
+
+    logger.info('Agent updated successfully', { agentId: id });
+    return Response.json({
+      success: true,
+      agent,
+      message: 'Agent updated successfully',
+    });
+  } catch (error) {
+    return handleError(error, Response);
+  }
+});
+
+export const DELETE = asyncHandler(async (request) => {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    const agents = getAgents();
-    const tasks = getTasks();
-
-    // Enhance agents with task statistics
-    const enhancedAgents = agents.map((agent) => {
-      const agentTasks = tasks.filter((t) => t.assignedTo === agent.name);
-      const completedTasks = agentTasks.filter((t) => t.status === 'completed').length;
-      const totalTasks = agentTasks.length;
-      const efficiency = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-      return {
-        ...agent,
-        totalTasks: totalTasks,
-        completedTasks: completedTasks,
-        activeTasks: agentTasks.filter((t) => t.status === 'in-progress').length,
-        efficiency: efficiency + '%',
-      };
-    });
-
-    if (id) {
-      const agent = enhancedAgents.find((a) => a.id === parseInt(id));
-      if (!agent) {
-        return Response.json(
-          { success: false, error: 'Agent not found' },
-          { status: 404 }
-        );
-      }
-      return Response.json({ success: true, agent });
+    if (!id) {
+      return Response.json(
+        {
+          success: false,
+          error: { message: 'Agent ID is required', statusCode: 400 },
+        },
+        { status: 400 }
+      );
     }
 
+    await agentService.deleteAgent(id);
+
+    logger.info('Agent deleted successfully', { agentId: id });
     return Response.json({
       success: true,
-      agents: enhancedAgents,
-      total: enhancedAgents.length,
+      message: 'Agent deleted successfully',
     });
   } catch (error) {
-    console.error('Get agents error:', error);
-    return Response.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return handleError(error, Response);
   }
-}
+});
