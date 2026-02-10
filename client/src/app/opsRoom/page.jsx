@@ -1,315 +1,268 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
-import Planner from '../../../public/Workers/Planner.png'
-import Developer from '../../../public/Workers/Developer.png'
-import Researcher from '../../../public/Workers/Researcher.png'
-import Tester from '../../../public/Workers/Tester.png'
-import Reporter from '../../../public/Workers/Reporter.png'
-import { Plus, MessageCircle, Sparkles } from "lucide-react"
-import logo from '../../../public/logo.png'
-import {useRouter} from 'next/navigation'
+import { useRouter } from "next/navigation"
+import { Plus, Send } from "lucide-react"
+
+import { useOpsStore } from "../../../store/opsStore"
+import { submitTask } from "../../../services/api"
+import { useTaskPolling } from "@/hooks/useTaskPolling"
+
+import logo from "../../../public/logo.png"
+import orch from "../../../public/Workers/orch.png"
+import Planner from "../../../public/Workers/Planner.png"
+import Developer from "../../../public/Workers/Developer.png"
+import Researcher from "../../../public/Workers/Researcher.png"
+import Tester from "../../../public/Workers/Tester.png"
+import Reporter from "../../../public/Workers/Reporter.png"
 
 const agents = [
-  { id: 1, name: "Planzilla", role: "Planner", image: Planner, color: "from-orange-500 to-red-500" },
-    { id: 2, name: "QueryLyn", role: "Researcher", image: Researcher, color: "from-purple-500 to-pink-500" },
-  { id: 3, name: "CodeWizard", role: "Developer", image: Developer, color: "from-blue-500 to-cyan-500" },
-  { id: 4, name: "BugBuster", role: "Tester", image: Tester, color: "from-green-500 to-emerald-500" },
-  { id: 5, name: "DataBard", role: "Reporter", image: Reporter, color: "from-yellow-500 to-orange-500" },
-]
-
-const mockMessages = [
-  {
-    id: 1,
-    agent: "Planzilla",
-    role: "Planner",
-    message:
-      "I have assigned the tasks to the team members. CodeWizard will create the PRD, DataBard will design the software architecture, and QueryLyn will implement the design. The team will work on the project accordingly.",
-    timestamp: "00:14",
-    status: "OK",
-  },
-  {
-    id: 2,
-    agent: "CodeWizard",
-    role: "Developer",
-    message:
-      "Create a Product Requirement Document (PRD) for a basic RGB color picker and slider with a GUI. The PRD should outline the features, user interface, and user experience, including the display of the equivalent hex color code. Use HTML, CSS, and JavaScript for the implementation.",
-    timestamp: "00:13",
-  },
-  {
-    id: 3,
-    agent: "DataBard",
-    role: "Reporter",
-    message:
-      "Design the software architecture for the RGB color picker, focusing on the GUI and the interaction between the RGB sliders and the display of the hex color code. Use HTML, CSS, and JavaScript for the implementation.",
-    timestamp: "00:12",
-  },
-]
-
-const mockTasks = [
-  {
-    id: 1,
-    title: "Create a Product Requirement Document (PRD) for a basic RGB color picker and slider with a GUI",
-    description:
-      "The PRD should outline the features, user interface, and user experience, including the display of the equivalent hex color code. Use HTML, CSS, and JavaScript for the implementation.",
-    status: "in-progress",
-    assignedTo: "CodeWizard",
-    timestamp: "00:14",
-  },
-  {
-    id: 2,
-    title: "Design the software architecture for the RGB color picker",
-    description:
-      "Focusing on the GUI and the interaction between the RGB sliders and the display of the hex color code. Use HTML, CSS, and JavaScript for the implementation.",
-    status: "in-progress",
-    timestamp: "00:13",
-    assignedTo: "DataBard",
-  },
-  {
-    id: 3,
-    title: "Break down the architecture into manageable tasks",
-    description: "Identify task dependencies, and prepare a detailed task list for implementation.",
-    status: "todo",
-    timestamp: "00:12",
-    assignedTo: "Planzilla",
-  },
-  {
-    id: 4,
-    title: "Implement the design of the RGB color picker",
-    description:
-      "Including the GUI, FGB sliders, and the display of the hex color code. Use HTML, CSS and JavaScript for the implementation.",
-    status: "completed",
-    timestamp: "00:12",
-    assignedTo: "CodeWizard",
-  },
+  { id: "planner", name: "Planzilla", role: "Planner", image: Planner },
+  { id: "researcher", name: "QueryLyn", role: "Researcher", image: Researcher },
+  { id: "coder", name: "CodeWizard", role: "Developer", image: Developer },
+  { id: "tester", name: "BugBuster", role: "Tester", image: Tester },
+  { id: "reporter", name: "DataBard", role: "Reporter", image: Reporter },
 ]
 
 export default function OpsRoom() {
+  const router = useRouter()
+  const logsEndRef = useRef(null)
+
+  const {
+    taskId,
+    status,
+    logs,
+    agents: agentStatus,
+    setTask,
+    setTaskId,
+    setStatus,
+    reset,
+  } = useOpsStore()
+
+  const [taskInput, setTaskInput] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [followUpInput, setFollowUpInput] = useState("")
+  const [showNewChat, setShowNewChat] = useState(false)
   const [selectedAgents, setSelectedAgents] = useState([])
 
+  useTaskPolling(taskId)
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [logs])
+
   const toggleAgent = (id) => {
-    setSelectedAgents((prev) => (prev.includes(id) ? prev.filter((aid) => aid !== id) : [...prev, id]))
+    setSelectedAgents((prev) =>
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
+    )
   }
 
-  const todoTasks = mockTasks.filter((t) => t.status === "todo")
-  const inProgressTasks = mockTasks.filter((t) => t.status === "in-progress")
-  const completedTasks = mockTasks.filter((t) => t.status === "completed")
+  const handleSubmitTask = async (e) => {
+    e.preventDefault()
+    if (!taskInput.trim()) return
 
+    try {
+      setIsSubmitting(true)
+      setTask(taskInput)
+      setStatus("running")
+      reset()
+
+      const { taskId: newTaskId } = await submitTask(taskInput)
+      setTaskId(newTaskId)
+      setTaskInput("")
+      setShowNewChat(false)
+    } catch (err) {
+      console.error(err)
+      setStatus("failed")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  /* -------- DERIVE TASKS FROM REAL LOGS -------- */
+  const tasks = agents.map((agent) => {
+    const agentLogs = logs.filter(
+      (l) => l.agent.toLowerCase() === agent.name.toLowerCase()
+    )
+
+    const aStatus = agentStatus?.[agent.id]?.status
+
+    return {
+      id: agent.id,
+      title: agentLogs[0]?.message || "Waiting to start…",
+      description: agentLogs.at(-1)?.message || "",
+      status:
+        aStatus === "running"
+          ? "in-progress"
+          : aStatus === "done"
+          ? "completed"
+          : "todo",
+      assignedTo: agent.name,
+      timestamp: agentLogs.at(-1)?.timestamp || "",
+    }
+  })
+
+  const todoTasks = tasks.filter((t) => t.status === "todo")
+  const inProgressTasks = tasks.filter((t) => t.status === "in-progress")
+  const completedTasks = tasks.filter((t) => t.status === "completed")
+
+  /* ---------------- UI ---------------- */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 relative overflow-hidden">
-      <div className="absolute inset-0 opacity-10">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage:
-              "linear-gradient(0deg, transparent 24%, rgba(59, 130, 246, 0.05) 25%, rgba(59, 130, 246, 0.05) 26%, transparent 27%, transparent 74%, rgba(59, 130, 246, 0.05) 75%, rgba(59, 130, 246, 0.05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(59, 130, 246, 0.05) 25%, rgba(59, 130, 246, 0.05) 26%, transparent 27%, transparent 74%, rgba(59, 130, 246, 0.05) 75%, rgba(59, 130, 246, 0.05) 76%, transparent 77%, transparent)",
-            backgroundSize: "50px 50px",
-          }}
-        />
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950">
+      {/* Header */}
+      <div className="border-b border-blue-500/20 bg-white/5 backdrop-blur-xl px-6 py-4">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push("/")}>
+          <div className="h-8 w-8 bg-white/10 rounded-full flex items-center justify-center">
+            <Image src={logo} alt="logo" className="h-6 w-6" />
+          </div>
+          <span className="text-white font-semibold">AgentFlow</span>
+        </div>
       </div>
 
-      {/* Glowing orbs */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
-      <div className="absolute bottom-20 right-10 w-72 h-72 bg-cyan-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
+      <div className="flex h-[calc(100vh-64px)]">
+        {/* LEFT PANEL */}
+        <div className="w-1/3 border-r border-blue-500/20 bg-white/5 backdrop-blur-xl flex flex-col relative">
+          <button
+            onClick={() => setShowNewChat(true)}
+            className="absolute top-4 right-4 flex gap-2 px-3 py-1 text-sm text-white bg-blue-500/20 rounded-lg"
+          >
+            <Plus className="w-4 h-4" /> New Chat
+          </button>
 
-      <div className="relative z-10 flex h-screen flex-col">
-        {/* Header */}
-        <div className="border-b border-blue-500/20 bg-white/5 backdrop-blur-xl px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 cursor-pointer" onClick={() => window.location.href='/'}>
-                <div className="flex items-center justify-center h-8 w-8 bg-white/10 rounded-full">
-              <Image src = {logo} alt="AgentFlow Logo" className="h-6 w-6"/>
-              </div>
-              <span className="text-white font-semibold">AgentFlow</span>
-            </div>
-         
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-hidden flex flex-col">
-          {/* Team Panel */}
-     
-
-          {/* Chat and Kanban Split */}
-          <div className="flex-1 overflow-hidden flex ">
-            {/* Chat Messages */}
-           {/* Left Panel */}
-           <div className="w-1/3 border-r border-blue-500/20 bg-white/5 backdrop-blur-xl flex flex-col relative">
-  {/* New Chat Button (fixed at top-right) */}
-  <button className="absolute top-4 right-4 flex cursor-pointer px-3 py-1 text-sm font-semibold text-white
-         bg-blue-500/20 backdrop-blur-lg backdrop-saturate-150
-         border border-white/20
-         transition ease-in-out duration-200
-         rounded-lg z-20">
-    <Plus className="w-4 h-4 pt-1" />
-    New Chat
-  </button>
-
-  {/* Chat Messages (scrollable) */}
-  <div className="flex-1 overflow-y-auto p-6 space-y-6 mt-14">
-    {mockMessages.map((msg) => {
-      const agent = agents.find((a) => a.name === msg.agent)
-      return (
-        <div key={msg.id} className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-blue-400 flex-shrink-0">
-              <Image
-                src={agent?.image || "/placeholder.svg"}
-                alt={msg.agent}
-                className="w-full h-full object-cover"
+          {showNewChat && (
+            <div className="p-4 mt-12 space-y-3">
+              <textarea
+                value={taskInput}
+                onChange={(e) => setTaskInput(e.target.value)}
+                rows={3}
+                className="w-full bg-white/10 rounded-lg p-3 text-white"
+                placeholder="Enter task…"
               />
+              <button
+                onClick={handleSubmitTask}
+                disabled={isSubmitting}
+                className="w-full bg-blue-600 text-white py-2 rounded-lg"
+              >
+                {isSubmitting ? "Submitting…" : "Submit Task"}
+              </button>
             </div>
-            <div className="flex gap-x-2">
-              <p className="text-sm font-semibold text-white">{msg.agent}</p>
-              <p className="text-xs text-blue-300 mt-1">| {msg.role}</p>
-            </div>
-            {msg.status && (
-              <span className="text-xs text-green-400 font-medium bg-green-500/20 px-2 py-1 rounded">
-                {msg.status}
+          )}
+
+         <div className="flex-1 overflow-y-auto p-6 space-y-6 mt-14">
+  {logs.map((log, idx) => {
+    const agent = agents.find(
+      (a) => a.name.toLowerCase() === log.agent.toLowerCase()
+    )
+
+    return (
+      <div key={idx} className="flex gap-3">
+        {/* Avatar */}
+      <Image
+  src={agent?.image || orch}
+  alt={log.agent}
+  className="w-9 h-9 rounded-full border border-blue-500"
+/>
+
+
+        {/* Content */}
+        <div className="flex flex-col gap-1">
+          {/* Name | Role | Status */}
+          <div className="flex items-center gap-2">
+            <p className="text-white font-semibold texttext-sm leading-none">
+              {log.agent}
+            </p>
+
+            {agent && agent.name.toLowerCase() !== "orchestrator" && (
+    <p className="text-xs text-blue-400 mt-[2px]">
+      | {agent.role}
+    </p>
+  )}
+
+            {log.status && (
+              <span className="ml-1 rounded-md bg-green-500/20 px-2 py-[2px] text-xs font-medium text-green-400">
+                {log.status}
               </span>
             )}
           </div>
-          <p className="text-sm text-blue-200 leading-relaxed ml-13">{msg.message}</p>
-          <p className="text-xs text-blue-400 ml-13">{msg.timestamp}</p>
-        </div>
-      )
-    })}
-  </div>
 
-  {/* Input Box */}
-  <div className="p-4">
-    <input
-      type="text"
-      placeholder="Ask a follow-up..."
-      className="w-full px-4 py-2 rounded-xl bg-white/20 backdrop-blur-md text-white placeholder-white-300 border border-blue-400/30 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-    />
-  </div>
+          {/* Message */}
+          <p className="text-sm text-blue-200 leading-relaxed">
+            {log.message}
+          </p>
+
+          {/* Timestamp */}
+          <p className="text-xs text-blue-400">
+            {log.timestamp}
+          </p>
+        </div>
+      </div>
+    )
+  })}
+
+  <div ref={logsEndRef} />
 </div>
 
 
-            
-            {/* outer  */}
-            <div className="flex-1   overflow-hidden flex flex-col">
-                {/* top bar with agents */}
-                 <div className="border-b b border-blue-500/20 bg-white/5 backdrop-blur-xl px-8 py-4 ">
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-blue-300 font-medium"></span>
-              <div className="flex gap-7 ">
-              {/* all agents are not coming fit going out do something  */}
-                {agents.map((agent) => (
-                 <div
-      key={agent.id}
-      className="flex-shrink-0  w-42   h-16 bg-transparent/50 backdrop-blur-md rounded-xl flex flex-row items-center justify-center cursor-pointer transition-transform transform hover:scale-105 px-2"
-      onClick={() => toggleAgent(agent.id - 1)}
-    >
-                    <div
-                      className={`flex w-16 h-16   p-1  group-hover:shadow-lg group-hover:shadow-blue-500/50 transition-all ${selectedAgents.includes(agent.id - 1) ? "ring-2 ring-blue-400" : ""}`}
-                    >
-                      <div className="w-full h-full  p-1 overflow-hidden">
-                        <Image
-                          src={agent.image || "/placeholder.svg"}
-                          alt={agent.name}
-                          className="w-full h-full object-cover rounded-full"
-                        />
-                      </div>
-                    </div>
-                    <div className="ml-3 mt-2 flex flex-col gap-y-1">
-                    <p className=" font-medium text-white  text-center">{agent.name}</p>
-                    <p className="text-xs text-gray-300 text-center">{agent.role}</p>
-                  </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-              <div className="p-8  overflow-y-auto h-full">
-                <div className="flex flex-col gap-8">
-                  {/* To Do Column */}
-                  <div className="w-full">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                        <span className="text-blue-400">📋</span> To Do
-                      </h3>
-                      <p className="text-sm text-blue-300">{todoTasks.length} Tasks</p>
-                    </div>
-                    <div className="space-y-3">
-                      {todoTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="p-4 rounded-lg bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border border-blue-500/30 hover:border-blue-500/60 transition-all cursor-move"
-                        >
-                          <p className="text-sm font-medium text-white mb-2">{task.title}</p>
-                          <p className="text-xs text-blue-300 mb-3">{task.description}</p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-blue-400">{task.timestamp}</span>
-                            <span className="text-xs bg-blue-600/50 text-blue-100 px-2 py-1 rounded">
-                              {task.assignedTo}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* In Progress Column */}
-                  <div className="w-full">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                        <span className="text-cyan-400">📊</span> In Progress
-                      </h3>
-                      <p className="text-sm text-cyan-300">{inProgressTasks.length} Tasks</p>
-                    </div>
-                    <div className="space-y-3">
-                      {inProgressTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="p-4 rounded-lg bg-gradient-to-br from-cyan-900/40 to-blue-900/40 border border-cyan-500/30 hover:border-cyan-500/60 transition-all cursor-move"
-                        >
-                          <p className="text-sm font-medium text-white mb-2">{task.title}</p>
-                          <p className="text-xs text-cyan-300 mb-3">{task.description}</p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-cyan-400">{task.timestamp}</span>
-                            <span className="text-xs bg-cyan-600/50 text-cyan-100 px-2 py-1 rounded">
-                              {task.assignedTo}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Completed Column */}
-                  <div className="w-full">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                        <span className="text-green-400">✓</span> Completed
-                      </h3>
-                      <p className="text-sm text-green-300">{completedTasks.length} Tasks</p>
-                    </div>
-                    <div className="space-y-3">
-                      {completedTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="p-4 rounded-lg bg-gradient-to-br from-green-900/40 to-emerald-900/40 border border-green-500/30 hover:border-green-500/60 transition-all cursor-move"
-                        >
-                          <p className="text-sm font-medium text-white mb-2 line-through">{task.title}</p>
-                          <p className="text-xs text-green-300 mb-3">{task.description}</p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-green-400">{task.timestamp}</span>
-                            <span className="text-xs bg-green-600/50 text-green-100 px-2 py-1 rounded">
-                              {task.assignedTo}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="p-4">
+            <input
+              value={followUpInput}
+              onChange={(e) => setFollowUpInput(e.target.value)}
+              placeholder="Ask a follow-up…"
+              className="w-full bg-white/10 rounded-xl px-4 py-2 text-white"
+            />
           </div>
         </div>
+
+        {/* RIGHT PANEL */}
+        <div className="flex-1 flex flex-col">
+          {/* AGENTS BAR */}
+          <div className="border-b border-blue-500/20 bg-white/5 px-8 py-4 flex gap-6">
+            {agents.map((agent) => (
+              <div
+                key={agent.id}
+                onClick={() => toggleAgent(agent.id)}
+                className="flex items-center gap-3 cursor-pointer"
+              >
+                <Image src={agent.image} className="w-12 h-12 rounded-full" />
+                <div>
+                  <p className="text-white font-medium">{agent.name}</p>
+                  <p className="text-xs text-gray-300">{agent.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* TASK BOARD */}
+          <div className="flex-1 overflow-y-auto p-8 space-y-10">
+            {/* TODO */}
+            <Section title="📋 To Do" tasks={todoTasks} />
+            <Section title="📊 In Progress" tasks={inProgressTasks} />
+            <Section title="✓ Completed" tasks={completedTasks} completed />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* -------- TASK SECTION COMPONENT -------- */
+function Section({ title, tasks, completed }) {
+  return (
+    <div>
+      <h3 className="text-white text-lg mb-3">{title}</h3>
+      <div className="space-y-3">
+        {tasks.map((t) => (
+          <div
+            key={t.id}
+            className="p-4 bg-blue-900/40 rounded-lg border border-blue-500/30"
+          >
+            <p className={`text-white ${completed ? "line-through opacity-70" : ""}`}>
+              {t.assignedTo}
+            </p>
+            <p className="text-xs text-blue-300">{t.description}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
