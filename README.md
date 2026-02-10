@@ -370,13 +370,13 @@ http://localhost:3000
 ## 📸 Demo
 
 ### Agent Dashboard
-![Agent Dashboard](./myagentflow/public/home.png)
+![Agent Dashboard](./public/home.png)
 
 ### Agents Team
-![Agent Dashboard](./myagentflow/public/team.png)
+![Agent Dashboard](./public/team.png)
 
 ### Why AgentFlow ?
-*![Agent Dashboard](./myagentflow/public/benefits.png)
+*![Agent Dashboard](./public/benefits.png)
 
 > 📹 **[Watch Full Demo Video](#)** | 🌐 **[Try Live Demo](#)**
 
