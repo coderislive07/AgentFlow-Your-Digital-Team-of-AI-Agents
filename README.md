@@ -1,7 +1,7 @@
 # AgentFlow
 
 
-![AgentFlow Logo](./myagentflow/public/logo.png)
+![AgentFlow Logo](./client/public/logo.png)
 **The Next Generation Multi-Agent Task Automation System**
 
 *Divide. Delegate. Dominate.*
