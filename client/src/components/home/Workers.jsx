@@ -4,6 +4,8 @@ import Developer from "../../../public/Workers/Developer.png"
 import Tester from "../../../public/Workers/Tester.png"
 import Reporter from "../../../public/Workers/Reporter.png"
 
+
+
 export default function Workers() {
   const workers = [
     {

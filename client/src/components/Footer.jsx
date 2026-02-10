@@ -51,9 +51,17 @@ export default function Footer() {
   return (
     <footer className="relative mt-24 overflow-hidden border-t border-border/50 bg-background">
       {/* checkerboard micro-grid background using currentColor */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 text-foreground/10">
-        <div className="[--g:linear-gradient(currentColor_1px,transparent_1px)] [background-image:var(--g),var(--g)] [background-size:24px_24px] [background-position:0_0,12px_12px] absolute inset-0" />
-      </div>
+   <div
+  aria-hidden
+  className="pointer-events-none absolute inset-0 opacity-[0.15]"
+  style={{
+    backgroundImage:
+      "linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px)," +
+      "linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px)",
+    backgroundSize: "32px 32px",
+    maskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
+  }}
+/>
 
       {/* soft radial glows */}
       <div
