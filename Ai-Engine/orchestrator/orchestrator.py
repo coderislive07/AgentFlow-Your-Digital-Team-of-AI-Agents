@@ -6,6 +6,7 @@ from memory.memory_store import MemoryStore
 from agents.tester import TesterAgent
 from tools.tool_manager import ToolManager
 from tools.file_writer import FileWriter
+from tools.zipper import Zipper
 
 import cohere
 import os
@@ -21,6 +22,7 @@ class Orchestrator:
         self.tester = TesterAgent()
         self.tool_manager = ToolManager()
         self.tool_manager.register_tool("file_writer", FileWriter())
+        self.tool_manager.register_tool("zipper" , Zipper()) # we can add more tools here and the agents can use them by calling the tool manager's execute method with the tool name and necessary arguments
 
         load_dotenv()
         self.co = cohere.Client(os.getenv("COHERE_API_KEY"))
@@ -84,8 +86,8 @@ class Orchestrator:
             elif next_agent == "developer":
                 research = memory.load("research")
                 dev_output = self.developer.generate_code(task["id"], research , self.tool_manager)
-                memory.save("code", dev_output["code"])
-                memory.save("file_path", dev_output["file_path"])
+                memory.save("code", dev_output["raw"])
+                memory.save("files", dev_output["files"])
             elif next_agent == "tester":
                 code = memory.load("code")
                 test = self.tester.test_code(code)
@@ -98,7 +100,9 @@ class Orchestrator:
                 test = memory.load("test")
 
                 report = self.reporter.generate_report(plan, research, code, test)
+                Zip_path = self.tool_manager.execute("zipper", task_id=task["id"])
                 memory.save("report", report)
+                memory.save("zip", Zip_path)
 
             elif next_agent == "done":
                 break
@@ -108,5 +112,6 @@ class Orchestrator:
             "research": memory.load("research"),
             "code": memory.load("code"),
             "test": memory.load("test"),
-            "report": memory.load("report")
+            "report": memory.load("report"),
+            "zip": memory.load("zip")   
         }

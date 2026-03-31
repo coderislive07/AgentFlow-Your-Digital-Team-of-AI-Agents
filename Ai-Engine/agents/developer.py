@@ -1,5 +1,6 @@
 import cohere
 import os
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,14 +13,36 @@ class DeveloperAgent:
         print("Developer Agent received:", research_steps)
 
         prompt = f"""
-        You are a senior full-stack developer.
+You are a senior full-stack developer.
 
-        Based on the following steps, generate code:
+Based on the following steps:
+{research_steps}
 
-        {research_steps}
+Generate a complete project in STRICT JSON format.
 
-        Provide clean production-ready code.
-        """
+Rules:
+- Output ONLY valid JSON
+- Do NOT include explanations
+- Do NOT include markdown (no ```)
+
+Format:
+{{
+  "files": [
+    {{
+      "filename": "index.html",
+      "content": "<html>...</html>"
+    }},
+    {{
+      "filename": "style.css",
+      "content": "body {{ ... }}"
+    }},
+    {{
+      "filename": "script.js",
+      "content": "console.log('Hello');"
+    }}
+  ]
+}}
+"""
 
         
         response = self.co.chat(
@@ -29,17 +52,34 @@ class DeveloperAgent:
             temperature=0.2,
         )
 
-        generated_code = response.text.strip()
+        raw_output = response.text.strip()
 
-        # too manager is used here to write the generated code to a file using the FileWriter tool. The developer agent doesn't need to know how the file writing is implemented, it just calls the tool manager with the necessary arguments and gets back the file path where the code is saved. This separation of concerns allows the developer agent to focus on code generation while delegating file management to the tool manager.
-        file_path = tool_manager.execute(
-            "file_writer",
-            task_id=task_id,
-            filename="app.js",
-            content=generated_code
-        )
+        
+        print("RAW LLM OUTPUT:", raw_output[:300])
+
+        # parsing to json because we need to extract the files and their content from the LLM output to create the actual files using the file writer tool. The LLM is supposed to return a JSON string that contains a list of files with their filenames and content, so we need to parse that string into a Python dictionary to work with it programmatically. If the LLM output is not valid JSON, we catch the error and return an empty list of files along with the raw output for debugging purposes.
+        try:
+            project = json.loads(raw_output)
+        except json.JSONDecodeError as e:
+            print("json decode error:", e)
+            return {
+                "files": [],
+                "raw": raw_output
+            }
+
+        # here we are using the tool manager to execute the file writer tool for each file in the project and store the file paths in a list. The tool manager will handle the execution of the file writer and return the path of the created file, which we can then store in our memory or return as part of the output. This way, we can keep track of all the files that were created as part of this task and easily access them later when we need to run tests or generate reports based on the code.
+        file_paths = []
+
+        for file in project.get("files", []):
+            path = tool_manager.execute(
+                "file_writer",
+                task_id=task_id,
+                filename=file["filename"],
+                content=file["content"]
+            )
+            file_paths.append(path)
 
         return {
-            "code": generated_code,
-            "file_path": file_path
+            "files": file_paths,
+            "raw": raw_output
         }
