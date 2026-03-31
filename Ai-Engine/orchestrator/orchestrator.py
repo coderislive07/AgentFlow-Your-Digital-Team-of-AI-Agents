@@ -4,6 +4,8 @@ from agents.developer import DeveloperAgent
 from agents.reporter import ReporterAgent
 from memory.memory_store import MemoryStore
 from agents.tester import TesterAgent
+from tools.tool_manager import ToolManager
+from tools.file_writer import FileWriter
 
 import cohere
 import os
@@ -17,6 +19,8 @@ class Orchestrator:
         self.developer = DeveloperAgent()
         self.reporter = ReporterAgent()
         self.tester = TesterAgent()
+        self.tool_manager = ToolManager()
+        self.tool_manager.register_tool("file_writer", FileWriter())
 
         load_dotenv()
         self.co = cohere.Client(os.getenv("COHERE_API_KEY"))
@@ -63,9 +67,6 @@ class Orchestrator:
     # 🔥 AUTONOMOUS LOOP
     def process_task(self, task):
         print("Orchestrator received task:", task)
-#    memory = MemoryStore()
-# TypeError: MemoryStore.__init__() missing 1 required positional argument: 'task_id'
-# what is this error ? 
         memory = MemoryStore(task["id"])  # create a new memory store for this task as dictionary with task id as key and value as another dictionary that will store the plan, research, code, test and report for this task
         while True:
             next_agent = self.decide_next_agent(memory)
@@ -81,7 +82,8 @@ class Orchestrator:
                 memory.save("research", research)
 
             elif next_agent == "developer":
-                dev_output = self.developer.generate_code(task["id"], research)
+                research = memory.load("research")
+                dev_output = self.developer.generate_code(task["id"], research , self.tool_manager)
                 memory.save("code", dev_output["code"])
                 memory.save("file_path", dev_output["file_path"])
             elif next_agent == "tester":
