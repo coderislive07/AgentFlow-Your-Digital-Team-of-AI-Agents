@@ -66,7 +66,7 @@ class Orchestrator:
 
         return response.text.strip().lower()
 
-    # 🔥 AUTONOMOUS LOOP
+    # processing starts here. This function will be called from the main loop in main.py when a new task is received. It will create a new memory store for this task and then enter a loop where it will keep deciding which agent to run next based on the current state of the task in memory until all agents have completed their work and the task is done. Finally, it will return the final results including the plan, research, code, test results and report.    
     def process_task(self, task):
         print("Orchestrator received task:", task)
         memory = MemoryStore(task["id"])  # create a new memory store for this task as dictionary with task id as key and value as another dictionary that will store the plan, research, code, test and report for this task
