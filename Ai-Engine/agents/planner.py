@@ -1,10 +1,10 @@
 class PlannerAgent:
     def __init__(self):
         pass
-    def create_plan(self, task):
+    def create_plan(self, task , logger):
         user_input = task.get("input")
 
-        print("Planner received:", user_input)
+        logger.info("Planner received:")
         plan = [
             f"Understand the task: {user_input}",
             "Break into smaller features",

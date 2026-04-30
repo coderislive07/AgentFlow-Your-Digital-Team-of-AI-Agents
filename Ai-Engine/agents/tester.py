@@ -8,8 +8,8 @@ class TesterAgent:
     def __init__(self):
         self.co = cohere.Client(os.getenv("COHERE_API_KEY"))
 
-    def test_code(self, code):
-        print("Tester Agent received code")
+    def test_code(self, code , logger):
+        logger.info("Tester Agent received code")
 
         prompt = f"""
         You are a senior QA engineer.

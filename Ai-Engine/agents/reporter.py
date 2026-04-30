@@ -10,7 +10,7 @@ class ReporterAgent:
         self.co = cohere.Client(os.getenv("COHERE_API_KEY"))
 
     def generate_report(self, plan, research, code, test):
-        print("Reporter Agent generating final report")
+        logger.info("Reporter Agent generating final report")
 
         prompt = f"""
         You are a project manager.

@@ -9,8 +9,8 @@ class DeveloperAgent:
     def __init__(self):
         self.co = cohere.Client(os.getenv("COHERE_API_KEY"))
 
-    def generate_code(self, task_id, research_steps, tool_manager):
-        print("Developer Agent received:", research_steps)
+    def generate_code(self, task_id, research_steps, tool_manager , logger):
+        logger.info("Developer Agent generating code based on research steps.")
 
         prompt = f"""
 You are a senior full-stack developer.

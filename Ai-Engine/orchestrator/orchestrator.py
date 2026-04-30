@@ -1,17 +1,18 @@
-from agents.planner import PlannerAgent
-from agents.researcher import ResearchAgent
-from agents.developer import DeveloperAgent
-from agents.reporter import ReporterAgent
-from memory.memory_store import MemoryStore
-from agents.tester import TesterAgent
-from tools.tool_manager import ToolManager
-from tools.file_writer import FileWriter
-from tools.zipper import Zipper
-
+import time  # 1. Added for rate limiting
 import cohere
 import os
 from dotenv import load_dotenv
 
+from agents.planner import PlannerAgent
+from agents.researcher import ResearchAgent
+from agents.developer import DeveloperAgent
+from agents.reporter import ReporterAgent
+from agents.tester import TesterAgent
+from memory.memory_store import MemoryStore
+from tools.tool_manager import ToolManager
+from tools.file_writer import FileWriter
+from tools.zipper import Zipper
+from utils.logger import Logger
 
 class Orchestrator:
     def __init__(self):
@@ -20,91 +21,105 @@ class Orchestrator:
         self.developer = DeveloperAgent()
         self.reporter = ReporterAgent()
         self.tester = TesterAgent()
+
         self.tool_manager = ToolManager()
         self.tool_manager.register_tool("file_writer", FileWriter())
-        self.tool_manager.register_tool("zipper" , Zipper()) # we can add more tools here and the agents can use them by calling the tool manager's execute method with the tool name and necessary arguments
+        self.tool_manager.register_tool("zipper", Zipper())
 
         load_dotenv()
         self.co = cohere.Client(os.getenv("COHERE_API_KEY"))
 
-    # this is decision engine that decides which agent to run next based on the current state of the task in memory
     def decide_next_agent(self, memory):
+        # 2. Use Booleans. LLMs handle "True/False" better than long text blocks for logic.
         state = {
-            "plan": memory.load("plan"),
-            "research": memory.load("research"),
-            "code": memory.load("code"),
-            "test": memory.load("test"),
-            "report": memory.load("report")
-
+            "has_plan": bool(memory.load("plan")),
+            "has_research": bool(memory.load("research")),
+            "has_code": bool(memory.load("code")),
+            "has_test": bool(memory.load("test")),
+            "has_report": bool(memory.load("report"))
         }
 
+        # 3. Explicit logic rules prevent the LLM from getting stuck on "planner"
         prompt = f"""
-        You are an AI orchestrator managing a software team.
+System State: {state}
 
-        Current state:
-        {state}
+Rules:
+- If has_plan is False -> planner
+- If has_plan is True and has_research is False -> researcher
+- If has_research is True and has_code is False -> developer
+- If has_code is True and has_test is False -> tester
+- If has_test is True and has_report is False -> reporter
+- If all are True -> done
 
-        Decide which agent should run next.
-
-        Rules:
-        - If no plan → planner
-        - If plan exists but no research → researcher
-        - If research exists but no code → developer
-        - If code exists but no test → tester
-        - If test exists but no report → reporter
-        - If everything done → done
-
-        Return only one word.
-        """
+Next agent (one word only):"""
 
         response = self.co.chat(
             model="command-xlarge-nightly",
             message=prompt,
-            max_tokens=3000,
-            temperature=0.2,
+            max_tokens=10,  # 4. Low tokens = faster & cheaper
+            temperature=0,   # 5. Deterministic (no "creative" loops)
         )
 
         return response.text.strip().lower()
 
-    # processing starts here. This function will be called from the main loop in main.py when a new task is received. It will create a new memory store for this task and then enter a loop where it will keep deciding which agent to run next based on the current state of the task in memory until all agents have completed their work and the task is done. Finally, it will return the final results including the plan, research, code, test results and report.    
     def process_task(self, task):
-        print("Orchestrator received task:", task)
-        memory = MemoryStore(task["id"])  # create a new memory store for this task as dictionary with task id as key and value as another dictionary that will store the plan, research, code, test and report for this task
-        while True:
-            next_agent = self.decide_next_agent(memory)
-            print("Next Agent:", next_agent)
+        logger = Logger(task["id"])
+        logger.info(f"Task started: {task}")
+        memory = MemoryStore(task["id"])
 
-            if next_agent == "planner":
-                plan = self.planner.create_plan(task)
+        while True:
+            # 6. Safety Brake: Prevents 429 Error (Trial limit is 20 calls/min)
+            time.sleep(3) 
+
+            next_agent = self.decide_next_agent(memory)
+            logger.debug(f"Next agent: {next_agent}")
+
+            if "planner" in next_agent:
+                plan = self.planner.create_plan(task, logger)
                 memory.save("plan", plan)
 
-            elif next_agent == "researcher":
+            elif "researcher" in next_agent:
                 plan = memory.load("plan")
-                research = self.researcher.research(plan)
+                research = self.researcher.research(plan, logger)
                 memory.save("research", research)
 
-            elif next_agent == "developer":
+            elif "developer" in next_agent:
                 research = memory.load("research")
-                dev_output = self.developer.generate_code(task["id"], research , self.tool_manager)
+                dev_output = self.developer.generate_code(
+                    task["id"],
+                    research,
+                    self.tool_manager,
+                    logger
+                )
                 memory.save("code", dev_output["raw"])
                 memory.save("files", dev_output["files"])
-            elif next_agent == "tester":
+
+            elif "tester" in next_agent:
                 code = memory.load("code")
+                # 7. Fixed: Removed 'logger' because TesterAgent.test_code only takes 'code'
                 test = self.tester.test_code(code)
                 memory.save("test", test)
 
-            elif next_agent == "reporter":
+            elif "reporter" in next_agent:
                 plan = memory.load("plan")
                 research = memory.load("research")
                 code = memory.load("code")
                 test = memory.load("test")
 
+                # 8. Fixed: Removed 'logger' because ReporterAgent.generate_report doesn't accept it
                 report = self.reporter.generate_report(plan, research, code, test)
-                Zip_path = self.tool_manager.execute("zipper", task_id=task["id"])
-                memory.save("report", report)
-                memory.save("zip", Zip_path)
 
-            elif next_agent == "done":
+                zip_path = self.tool_manager.execute(
+                    "zipper",
+                    logger=logger,
+                    task_id=task["id"]
+                )
+
+                memory.save("report", report)
+                memory.save("zip", zip_path)
+
+            elif "done" in next_agent:
+                logger.info("Task completed")
                 break
 
         return {
@@ -113,5 +128,5 @@ class Orchestrator:
             "code": memory.load("code"),
             "test": memory.load("test"),
             "report": memory.load("report"),
-            "zip": memory.load("zip")   
+            "zip": memory.load("zip")
         }

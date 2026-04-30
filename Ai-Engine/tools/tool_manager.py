@@ -3,18 +3,59 @@ class ToolManager:
         self.tools = {}
 
     def register_tool(self, name, tool):
-        print(f"[ToolManager] Registered tool: {name}")
+        """
+        Register a tool in the system.
+
+        name: string identifier of tool
+        tool: callable (function or class with __call__)
+        """
+        if name in self.tools:
+            raise Exception(f"Tool '{name}' already registered")
+
         self.tools[name] = tool
+        print(f"[ToolManager] Registered tool: {name}")
 
-    def execute(self, tool_name, **kwargs):
+    def execute(self, tool_name, logger=None, **kwargs):
+        """
+        Execute a tool by name.
+
+        tool_name: name of registered tool
+        logger: optional Logger instance
+        kwargs: arguments passed to tool
+        """
+
+
         if tool_name not in self.tools:
-            raise Exception(f"Tool '{tool_name}' not found")
+            error_msg = f"Tool '{tool_name}' not found"
 
-        print(f"[ToolManager] Executing: {tool_name}")
+            if logger:
+                logger.error(error_msg)
+            else:
+                print(f"[ToolManager ERROR] {error_msg}")
+
+            raise Exception(error_msg)
+
+        if logger:
+            logger.info(f"Executing tool: {tool_name}")
+        else:
+            print(f"[ToolManager] Executing: {tool_name}")
 
         tool = self.tools[tool_name]
-        return tool(**kwargs)
-                # how this whole manager is working ? 
-        # this manager is working as a central hub for all the tools that the agents will use.
-        # the agents will call the execute method of the tool manager and pass the name of the tool they want to use along with the necessary arguments.
-        # the tool manager will then look up the tool in its registry and execute it with the provided arguments, returning the result back to the agent. This way, the agents don't need to know the implementation details of the tools, they just need
+
+        try:
+            result = tool(**kwargs)
+
+            if logger:
+                logger.info(f"Tool '{tool_name}' executed successfully")
+            else:
+                print(f"[ToolManager] {tool_name} success")
+
+            return result
+
+        except Exception as e:
+            if logger:
+                logger.error(f"Tool '{tool_name}' failed: {str(e)}")
+            else:
+                print(f"[ToolManager ERROR] {tool_name} failed: {e}")
+
+            raise e
